@@ -1,0 +1,16 @@
+[
+  {
+    "customer_id": "IC002",
+    "name": "MICHAEL K. WONG",
+    "severity": "medium",
+    "source": "Public Records Monitor",
+    "summary": "Mentioned in an unresolved corporate misconduct dispute."
+  },
+  {
+    "customer_id": "IC003",
+    "name": "DAVID R. GARCIA",
+    "severity": "high",
+    "source": "Compliance Watchlist",
+    "summary": "Associated with sanctions-screening false declaration case."
+  }
+]

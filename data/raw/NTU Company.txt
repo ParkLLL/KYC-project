@@ -1,0 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Dec 24 11:03:37 2025
+NTU Company fully acquired MyRepublic's broadband business in Singapore in August 2025, taking over the remaining stake to gain complete ownership of the broadband operations, including the brand and key assets, as announced by NTU Company Ltd. 
+Key Details:
+Acquirer: NTU Company.
+Target: MyRepublic Broadband Pte. Ltd. (Singapore).
+Completion Date: August 12, 2025.
+What was acquired: NTU Company already held a majority stake (50.1%) and acquired the final 49.9% stake, plus the brand and operational assets.
+Impact: This move reinforced NTU Company's position in the Singapore broadband market, allowing for greater integration and service bundling, with MyRepublic's mobile services continuing separately. 

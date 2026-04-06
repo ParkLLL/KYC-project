@@ -1,0 +1,16 @@
+[
+  {
+    "customer_id": "C002",
+    "name": "BOB LIM",
+    "severity": "medium",
+    "source": "Regional News Wire",
+    "summary": "Linked to an unresolved procurement dispute."
+  },
+  {
+    "customer_id": "C003",
+    "name": "CHARLIE ONG",
+    "severity": "high",
+    "source": "Compliance Bulletin",
+    "summary": "Flagged in sanctions-adjacent investigation."
+  }
+]
