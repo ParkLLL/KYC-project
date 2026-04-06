@@ -1,4 +1,30 @@
-pandas
-pytesseract
-Pillow
-pypdf
+# Core data processing
+pandas==3.0.2
+numpy==2.4.4
+
+# OCR & document parsing
+pytesseract==0.3.13
+Pillow==12.2.0
+pypdf==6.9.2
+
+# Web & news fetching
+requests==2.33.1
+feedparser==6.0.12
+beautifulsoup4==4.14.3
+tldextract==5.3.1
+
+# NLP & text matching
+rapidfuzz==3.14.3
+transformers==5.5.0
+
+# LangChain & Gemini
+langchain==1.2.15
+langchain-google-genai==4.2.1
+
+# Utilities
+tabulate==0.10.0
+python-dateutil==2.9.0.post0
+python-dotenv==1.2.2
+
+# System dependency (install separately via conda or brew):
+# tesseract-ocr  -> conda install -c conda-forge tesseract
