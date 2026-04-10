@@ -33,6 +33,8 @@ import argparse
 import hashlib
 import json
 import os
+import re
+from collections import Counter
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -75,6 +77,27 @@ llm = ChatGoogleGenerativeAI(
     temperature=0,          # deterministic for compliance tasks
     convert_system_message_to_human=True,  # Gemini quirk
 )
+
+
+# =============================================================================
+# 0b.  Auto-detection helpers
+# =============================================================================
+
+def _auto_detect_entity_name(report_files: list[str]) -> str:
+    """Infer entity name from PDF filenames.
+    e.g. ['SingPost AR 2022_23.pdf', 'SingPost AR 2023_24.pdf'] → 'SingPost'
+    """
+    candidates = []
+    for f in report_files:
+        stem = Path(f).stem  # e.g. "SingPost AR 2022_23"
+        match = re.match(r'^(.+?)\s+(?:AR|Annual|Report)\b', stem, re.IGNORECASE)
+        if match:
+            candidates.append(match.group(1).strip())
+        else:
+            candidates.append(re.split(r'[\s_]', stem)[0])
+    if not candidates:
+        return ""
+    return Counter(candidates).most_common(1)[0][0]
 
 
 # =============================================================================
@@ -406,9 +429,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--customers-csv",     default="data/customers_daily.csv")
     parser.add_argument("--adverse-media-json",default="data/adverse_media_mock.json")
     parser.add_argument("--entity-name",       default="",
-                        help="Entity name for annual-report screening")
-    parser.add_argument("--reports-dir",       default="",
-                        help="Directory with annual report PDFs")
+                        help="Entity name for annual-report screening (auto-detected if omitted)")
+    parser.add_argument("--reports-dir",       default="data/raw",
+                        help="Directory with annual report PDFs (default: data/raw)")
     parser.add_argument("--output",            default="output/kyc_report_agent.json")
     return parser.parse_args()
 
@@ -420,14 +443,30 @@ def main() -> None:
     _KYC_CONTEXT["customers_df"]  = load_customers(args.customers_csv)
     _KYC_CONTEXT["doc_path"]      = args.document
     _KYC_CONTEXT["adverse_db"]    = load_adverse_media_db(args.adverse_media_json)
-    _KYC_CONTEXT["entity_name"]   = args.entity_name
-    report_files = (
-        sorted(str(p) for p in Path(args.reports_dir).glob("*.pdf"))
-        if args.reports_dir else []
-    )
+
+    # ── Auto-detect report PDFs ───────────────────────────────────────────
+    reports_dir = Path(args.reports_dir) if args.reports_dir else None
+    if reports_dir and reports_dir.exists():
+        report_files = sorted(str(p) for p in reports_dir.glob("*.pdf"))
+    else:
+        report_files = []
+
+    if report_files:
+        print(f"[Auto] Found {len(report_files)} PDF(s) in '{args.reports_dir}'.")
+    else:
+        print(f"[Auto] No PDFs found in '{args.reports_dir}', skipping RAG.")
+
+    # ── Auto-detect entity name from filenames if not provided ───────────
+    entity_name = args.entity_name
+    if not entity_name and report_files:
+        entity_name = _auto_detect_entity_name(report_files)
+        if entity_name:
+            print(f"[Auto] Detected entity name: '{entity_name}'")
+
+    _KYC_CONTEXT["entity_name"]  = entity_name
     _KYC_CONTEXT["report_files"] = report_files
 
-    # ── Build RAG vector store (or load from cache) ───────────────────────
+    # ── Build RAG vector store only if PDFs are available ────────────────
     if report_files:
         vector_store = build_or_load_vector_store(report_files, api_key)
     else:
@@ -448,6 +487,8 @@ def main() -> None:
     print("="*60)
     print(f"  Customer : {args.customer_id}")
     print(f"  Document : {args.document}")
+    print(f"  Entity   : {entity_name or '(none)'}")
+    print(f"  RAG      : {'enabled (' + str(len(report_files)) + ' PDFs)' if vector_store else 'disabled'}")
     print("="*60 + "\n")
 
     result = agent_executor.invoke(
