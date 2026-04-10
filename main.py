@@ -30,6 +30,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -46,6 +47,11 @@ from langchain_core.tools import tool
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import SystemMessage, ToolMessage
 from langgraph.prebuilt import create_react_agent
+
+# ── RAG dependencies ───────────────────────────────────────────────────────
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
 
 # ── Your existing modules (unchanged) ─────────────────────────────────────
 from identity_check import load_customers, run_identity_check
@@ -77,6 +83,119 @@ llm = ChatGoogleGenerativeAI(
 # =============================================================================
 
 _KYC_CONTEXT: dict = {}   # populated by parse_args() before agent runs
+
+# Cache directory for persisted FAISS vector stores
+_VECTOR_STORE_DIR = Path("output/vector_store_cache")
+
+
+# =============================================================================
+# 1b. RAG — Embedding detection + vector store build / cache
+# =============================================================================
+
+def _detect_embeddings(api_key: str):
+    """
+    Try Google Generative AI embeddings first.
+    Fall back to local sentence-transformers if unavailable.
+    Returns (embeddings_object, backend_name).
+    """
+    try:
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+        embeddings = GoogleGenerativeAIEmbeddings(
+            model="models/text-embedding-004",
+            google_api_key=api_key,
+        )
+        # Quick probe to confirm the API key has embedding access
+        embeddings.embed_query("test")
+        print("[RAG] Using Google Generative AI embeddings (text-embedding-004)")
+        return embeddings, "google"
+    except Exception as e:
+        print(f"[RAG] Google embeddings unavailable ({e.__class__.__name__}), "
+              "falling back to local sentence-transformers (all-MiniLM-L6-v2)")
+        from langchain_huggingface import HuggingFaceEmbeddings
+        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        return embeddings, "local"
+
+
+def _compute_corpus_hash(report_files: list[str]) -> str:
+    """SHA-256 of all PDF file sizes + mtimes — fast proxy for content change."""
+    h = hashlib.sha256()
+    for f in sorted(report_files):
+        p = Path(f)
+        if p.exists():
+            stat = p.stat()
+            h.update(f"{p.name}:{stat.st_size}:{stat.st_mtime}".encode())
+    return h.hexdigest()[:16]
+
+
+def build_or_load_vector_store(report_files: list[str], api_key: str):
+    """
+    Build a FAISS vector store from the given PDF files, or load from cache
+    if the corpus hasn't changed since the last run.
+
+    Cache layout:
+        output/vector_store_cache/<hash>/index.faiss
+        output/vector_store_cache/<hash>/index.pkl
+        output/vector_store_cache/<hash>/meta.json   ← backend + file list
+    """
+    if not report_files:
+        return None
+
+    embeddings, backend = _detect_embeddings(api_key)
+    corpus_hash = _compute_corpus_hash(report_files)
+    cache_dir = _VECTOR_STORE_DIR / corpus_hash
+
+    # ── Try loading from cache ────────────────────────────────────────────
+    meta_path = cache_dir / "meta.json"
+    if cache_dir.exists() and meta_path.exists():
+        meta = json.loads(meta_path.read_text())
+        if meta.get("backend") == backend:
+            print(f"[RAG] Loading vector store from cache ({cache_dir})")
+            try:
+                vs = FAISS.load_local(
+                    str(cache_dir),
+                    embeddings,
+                    allow_dangerous_deserialization=True,
+                )
+                print(f"[RAG] Cache hit — {meta['num_chunks']} chunks loaded")
+                return vs
+            except Exception as e:
+                print(f"[RAG] Cache load failed ({e}), rebuilding...")
+
+    # ── Build from scratch ────────────────────────────────────────────────
+    print(f"[RAG] Building vector store from {len(report_files)} PDF(s)...")
+    splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
+    all_docs = []
+    for f in report_files:
+        p = Path(f)
+        if not p.exists():
+            print(f"[RAG] Skipping missing file: {p.name}")
+            continue
+        try:
+            loader = PyPDFLoader(str(p))
+            pages = loader.load()
+            chunks = splitter.split_documents(pages)
+            all_docs.extend(chunks)
+            print(f"[RAG]   {p.name} → {len(chunks)} chunks")
+        except Exception as e:
+            print(f"[RAG]   Failed to load {p.name}: {e}")
+
+    if not all_docs:
+        print("[RAG] No documents loaded, skipping vector store.")
+        return None
+
+    vs = FAISS.from_documents(all_docs, embeddings)
+
+    # ── Persist to cache ──────────────────────────────────────────────────
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    vs.save_local(str(cache_dir))
+    meta_path.write_text(json.dumps({
+        "backend": backend,
+        "corpus_hash": corpus_hash,
+        "num_chunks": len(all_docs),
+        "files": [Path(f).name for f in report_files],
+    }, indent=2))
+    print(f"[RAG] Vector store saved to cache ({len(all_docs)} chunks, backend={backend})")
+    return vs
 
 
 # =============================================================================
@@ -136,31 +255,33 @@ def news_check_tool(customer_id: str) -> str:
     adverse_db    = ctx["adverse_db"]
     entity_name   = ctx.get("entity_name", "")
     report_files  = ctx.get("report_files", [])
+    vector_store  = ctx.get("vector_store")   # pre-built RAG index (may be None)
 
     row = customers_df.loc[customers_df["customer_id"] == customer_id]
     if row.empty:
         return json.dumps({"error": f"Unknown customer_id: {customer_id}"})
     customer_name = str(row.iloc[0]["name"])
 
-    # First pass: check adverse media only (no annual reports)
+    # First pass: check adverse media only (no annual report screening)
     result = run_news_check(
         customer_id=customer_id,
         customer_name=customer_name,
         adverse_media_db=adverse_db,
         entity_name=None,
         report_files=[],
+        vector_store=None,
     )
 
-    # Only run annual report screening if customer already has adverse media hits
-    # and an entity name + report files were provided.
-    # This prevents SingPost's own report keywords from polluting unrelated customers.
-    if result.matched_alerts and entity_name and report_files:
+    # Only run annual report screening if the customer already has adverse media hits.
+    # This prevents entity report keywords from polluting unrelated customers.
+    if result.matched_alerts and entity_name and (vector_store is not None or report_files):
         result = run_news_check(
             customer_id=customer_id,
             customer_name=customer_name,
             adverse_media_db=adverse_db,
             entity_name=entity_name,
             report_files=report_files,
+            vector_store=vector_store,   # RAG path; fallback to keyword if None
         )
 
     result_dict = {
@@ -300,10 +421,18 @@ def main() -> None:
     _KYC_CONTEXT["doc_path"]      = args.document
     _KYC_CONTEXT["adverse_db"]    = load_adverse_media_db(args.adverse_media_json)
     _KYC_CONTEXT["entity_name"]   = args.entity_name
-    _KYC_CONTEXT["report_files"]  = (
+    report_files = (
         sorted(str(p) for p in Path(args.reports_dir).glob("*.pdf"))
         if args.reports_dir else []
     )
+    _KYC_CONTEXT["report_files"] = report_files
+
+    # ── Build RAG vector store (or load from cache) ───────────────────────
+    if report_files:
+        vector_store = build_or_load_vector_store(report_files, api_key)
+    else:
+        vector_store = None
+    _KYC_CONTEXT["vector_store"] = vector_store
 
     # ── Build and run the agent ────────────────────────────────────────────
     agent_executor = build_kyc_agent()

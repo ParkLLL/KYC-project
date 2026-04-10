@@ -21,6 +21,12 @@ transformers==5.5.0
 langchain==1.2.15
 langchain-google-genai==4.2.1
 
+# RAG dependencies
+langchain-community       # FAISS vector store + document loaders
+langchain-text-splitters  # RecursiveCharacterTextSplitter
+faiss-cpu                 # vector similarity search
+sentence-transformers     # local embedding fallback (all-MiniLM-L6-v2)
+
 # Utilities
 tabulate==0.10.0
 python-dateutil==2.9.0.post0

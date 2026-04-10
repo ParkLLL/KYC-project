@@ -66,67 +66,76 @@ def _extract_pdf_text(pdf_path: str | Path) -> str:
     return "\n".join(chunks)
 
 
-def screen_entity_from_reports(
+def screen_entity_from_reports_rag(
     entity_name: str,
-    report_files: list[str | Path],
+    vector_store,
 ) -> tuple[float, list[str], list[dict[str, Any]]]:
-    if not report_files:
-        return 0.0, ["No annual reports provided for report screening."], []
+    """RAG-based screening: semantically retrieve relevant chunks, then score risk keywords."""
 
-    entity = entity_name.strip().lower()
-    entity_flat = re.sub(r"[^a-z0-9]", "", entity)
-    if not entity:
-        return 0.0, ["Entity name is empty, skipped report screening."], []
+    # Multiple risk-focused queries to retrieve relevant sections
+    risk_queries = [
+        f"{entity_name} fraud investigation penalty fine",
+        f"{entity_name} regulatory sanction non-compliance",
+        f"{entity_name} corruption bribery whistleblowing",
+        f"{entity_name} money laundering litigation breach",
+    ]
 
+    seen_chunks: set[str] = set()
+    retrieved_chunks: list[str] = []
+    source_names: set[str] = set()
+
+    for query in risk_queries:
+        try:
+            docs = vector_store.similarity_search(query, k=3)
+        except Exception:
+            continue
+        for doc in docs:
+            text = doc.page_content
+            if text not in seen_chunks:
+                seen_chunks.add(text)
+                retrieved_chunks.append(text)
+                src = doc.metadata.get("source", "")
+                if src:
+                    source_names.add(Path(src).name)
+
+    if not retrieved_chunks:
+        return 0.0, [f"RAG: no relevant chunks retrieved for '{entity_name}'."], []
+
+    combined_text = " ".join(retrieved_chunks).lower()
     total_weighted_hits = 0
+    per_keyword_hits: list[tuple[str, int]] = []
+
+    for keyword, weight in REPORT_RISK_KEYWORDS.items():
+        count = len(re.findall(re.escape(keyword), combined_text))
+        if count > 0:
+            per_keyword_hits.append((keyword, count))
+            total_weighted_hits += weight + min(3, int(math.log2(count + 1)))
+
     findings: list[str] = []
     report_alerts: list[dict[str, Any]] = []
-
-    for report in report_files:
-        report_path = Path(report)
-        if not report_path.exists():
-            findings.append(f"Report not found: {report_path.name}")
-            continue
-        try:
-            text = _extract_pdf_text(report_path).lower()
-        except Exception as exc:
-            findings.append(f"Failed to parse report {report_path.name}: {exc}")
-            continue
-
-        file_name_hit = entity_flat and entity_flat in re.sub(r"[^a-z0-9]", "", report_path.stem.lower())
-        text_hit = entity in text if entity else False
-        if not file_name_hit and not text_hit:
-            # If entity match is weak, still continue scanning because user-provided
-            # annual reports are often already filtered to the target company.
-            findings.append(f"{report_path.name}: entity mention not explicit, scanned as provided source.")
-
-        per_report_hits: list[tuple[str, int]] = []
-        for keyword, weight in REPORT_RISK_KEYWORDS.items():
-            count = len(re.findall(re.escape(keyword), text))
-            if count > 0:
-                per_report_hits.append((keyword, count))
-                # Use presence-based scoring to avoid inflated counts from repetitive report sections.
-                total_weighted_hits += weight + min(3, int(math.log2(count + 1)))
-
-        if per_report_hits:
-            top_hits = sorted(per_report_hits, key=lambda x: x[1], reverse=True)[:4]
-            hit_text = ", ".join([f"{k} x{v}" for k, v in top_hits])
-            findings.append(f"{report_path.name}: {hit_text}")
-            report_alerts.append(
-                {
-                    "source": report_path.name,
-                    "severity": "medium" if total_weighted_hits < 60 else "high",
-                    "summary": f"Keyword risk signals found for entity '{entity_name}'.",
-                }
-            )
+    sources_label = ", ".join(sorted(source_names)) or "annual reports"
 
     if total_weighted_hits == 0:
-        if findings:
-            return 0.0, findings, report_alerts
-        return 0.0, ["No high-risk signals found in annual reports."], report_alerts
+        findings.append(
+            f"RAG retrieved {len(retrieved_chunks)} chunks from {sources_label} "
+            f"for '{entity_name}' but found no risk keywords."
+        )
+        return 0.0, findings, report_alerts
 
-    # Normalize weighted hits into an intuitive 0-100 scale.
-    report_risk_score = float(min(70, round((total_weighted_hits / max(1, len(report_files))) * 1.2, 2)))
+    top_hits = sorted(per_keyword_hits, key=lambda x: x[1], reverse=True)[:5]
+    hit_text = ", ".join(f"{k} x{v}" for k, v in top_hits)
+    findings.append(f"RAG ({sources_label}): {hit_text}")
+    severity = "high" if total_weighted_hits >= 60 else "medium"
+    report_alerts.append({
+        "source": f"RAG({sources_label})",
+        "severity": severity,
+        "summary": (
+            f"Semantic retrieval found risk signals for entity '{entity_name}' "
+            f"in annual reports."
+        ),
+    })
+
+    report_risk_score = float(min(70, round(total_weighted_hits * 0.8, 2)))
     return report_risk_score, findings, report_alerts
 
 
@@ -136,6 +145,7 @@ def run_news_check(
     adverse_media_db: list[dict[str, Any]],
     entity_name: str | None = None,
     report_files: list[str | Path] | None = None,
+    vector_store=None,
 ) -> NewsCheckResult:
     normalized_name = customer_name.strip().upper()
     hits: list[dict[str, Any]] = []
@@ -163,8 +173,17 @@ def run_news_check(
     report_score = 0.0
     report_reasons: list[str] = []
     report_alerts: list[dict[str, Any]] = []
-    if entity_name and report_files:
-        report_score, report_reasons, report_alerts = screen_entity_from_reports(entity_name, report_files)
+    if entity_name and vector_store is not None:
+        # RAG path: use pre-built vector store for semantic retrieval
+        report_score, report_reasons, report_alerts = screen_entity_from_reports_rag(
+            entity_name, vector_store
+        )
+        reasons.extend(report_reasons)
+    elif entity_name and report_files:
+        # Fallback: keyword scan when no vector store available
+        report_score, report_reasons, report_alerts = screen_entity_from_reports(
+            entity_name, report_files
+        )
         reasons.extend(report_reasons)
 
     combined_score = float(round(max(base_news_score, report_score), 2))
