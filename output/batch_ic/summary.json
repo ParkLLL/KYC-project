@@ -1,0 +1,29 @@
+[
+  {
+    "customer_id": "IC001",
+    "document_used": "data/processed/cards/IC001.png",
+    "identity_confidence": 100.0,
+    "news_risk_score": 70.0,
+    "final_risk_score": 28.0,
+    "risk_level": "Low",
+    "decision": "APPROVE"
+  },
+  {
+    "customer_id": "IC002",
+    "document_used": "data/processed/cards/IC002.png",
+    "identity_confidence": 100.0,
+    "news_risk_score": 70.0,
+    "final_risk_score": 28.0,
+    "risk_level": "Low",
+    "decision": "APPROVE"
+  },
+  {
+    "customer_id": "IC003",
+    "document_used": "data/processed/cards/IC003.png",
+    "identity_confidence": 100.0,
+    "news_risk_score": 80.0,
+    "final_risk_score": 32.0,
+    "risk_level": "Medium",
+    "decision": "MANUAL_REVIEW"
+  }
+]

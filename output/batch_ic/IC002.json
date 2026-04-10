@@ -1,0 +1,67 @@
+{
+  "customer_id": "IC002",
+  "document_used": "data/processed/cards/IC002.png",
+  "identity_check": {
+    "confidence_score": 100.0,
+    "name_match": true,
+    "id_match": true,
+    "dob_match": true,
+    "ocr_fields": {
+      "name": "MICHAEL K. WONG",
+      "id_number": "2109 8765 4321",
+      "dob": "07 Mar 1980"
+    },
+    "reasons": []
+  },
+  "news_check": {
+    "news_risk_score": 70.0,
+    "matched_alerts": [
+      {
+        "customer_id": "IC002",
+        "name": "MICHAEL K. WONG",
+        "severity": "medium",
+        "source": "Public Records Monitor",
+        "summary": "Mentioned in an unresolved corporate misconduct dispute."
+      },
+      {
+        "source": "SingPost AR 2022_23.pdf",
+        "severity": "high",
+        "summary": "Keyword risk signals found for entity 'SingPost'."
+      },
+      {
+        "source": "SingPost AR 2023_24.pdf",
+        "severity": "high",
+        "summary": "Keyword risk signals found for entity 'SingPost'."
+      },
+      {
+        "source": "SingPost AR 2024_25.pdf",
+        "severity": "high",
+        "summary": "Keyword risk signals found for entity 'SingPost'."
+      }
+    ],
+    "reasons": [
+      "Hit: Public Records Monitor (medium) - Mentioned in an unresolved corporate misconduct dispute.",
+      "SingPost AR 2022_23.pdf: fine x48, fraud x21, corruption x16, breach x14",
+      "SingPost AR 2023_24.pdf: fine x47, fraud x24, breach x20, corruption x15",
+      "SingPost AR 2024_25.pdf: fine x47, whistleblowing x26, fraud x23, corruption x16"
+    ],
+    "reports_scanned": [
+      "data/raw/SingPost AR 2022_23.pdf",
+      "data/raw/SingPost AR 2023_24.pdf",
+      "data/raw/SingPost AR 2024_25.pdf"
+    ]
+  },
+  "risk_scoring": {
+    "final_risk_score": 28.0,
+    "risk_level": "Low",
+    "decision": "APPROVE",
+    "reasons": [
+      "Identity risk=0.00 (from confidence 100.00).",
+      "News risk=70.00 (from adverse media screening).",
+      "Hit: Public Records Monitor (medium) - Mentioned in an unresolved corporate misconduct dispute.",
+      "SingPost AR 2022_23.pdf: fine x48, fraud x21, corruption x16, breach x14",
+      "SingPost AR 2023_24.pdf: fine x47, fraud x24, breach x20, corruption x15",
+      "SingPost AR 2024_25.pdf: fine x47, whistleblowing x26, fraud x23, corruption x16"
+    ]
+  }
+}

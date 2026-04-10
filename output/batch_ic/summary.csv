@@ -1,0 +1,4 @@
+customer_id,document_used,identity_confidence,news_risk_score,final_risk_score,risk_level,decision
+IC001,data/processed/cards/IC001.png,100.0,70.0,28.0,Low,APPROVE
+IC002,data/processed/cards/IC002.png,100.0,70.0,28.0,Low,APPROVE
+IC003,data/processed/cards/IC003.png,100.0,80.0,32.0,Medium,MANUAL_REVIEW
