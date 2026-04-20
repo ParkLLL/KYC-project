@@ -1,0 +1,67 @@
+{
+  "customer_id": "IC003",
+  "document_used": "data/processed/cards/IC003.png",
+  "identity_check": {
+    "confidence_score": 100.0,
+    "name_match": true,
+    "id_match": true,
+    "dob_match": true,
+    "ocr_fields": {
+      "name": "DAVID R. GARCIA",
+      "id_number": "6785 2109 4321",
+      "dob": "15 Dec 1987"
+    },
+    "reasons": []
+  },
+  "news_check": {
+    "news_risk_score": 80.0,
+    "matched_alerts": [
+      {
+        "customer_id": "IC003",
+        "name": "DAVID R. GARCIA",
+        "severity": "high",
+        "source": "Compliance Watchlist",
+        "summary": "Associated with sanctions-screening false declaration case."
+      },
+      {
+        "source": "SingPost AR 2022_23.pdf",
+        "severity": "high",
+        "summary": "Keyword risk signals found for entity 'SingPost'."
+      },
+      {
+        "source": "SingPost AR 2023_24.pdf",
+        "severity": "high",
+        "summary": "Keyword risk signals found for entity 'SingPost'."
+      },
+      {
+        "source": "SingPost AR 2024_25.pdf",
+        "severity": "high",
+        "summary": "Keyword risk signals found for entity 'SingPost'."
+      }
+    ],
+    "reasons": [
+      "Hit: Compliance Watchlist (high) - Associated with sanctions-screening false declaration case.",
+      "SingPost AR 2022_23.pdf: fine x48, fraud x21, corruption x16, breach x14",
+      "SingPost AR 2023_24.pdf: fine x47, fraud x24, breach x20, corruption x15",
+      "SingPost AR 2024_25.pdf: fine x47, whistleblowing x26, fraud x23, corruption x16"
+    ],
+    "reports_scanned": [
+      "data/raw/SingPost AR 2022_23.pdf",
+      "data/raw/SingPost AR 2023_24.pdf",
+      "data/raw/SingPost AR 2024_25.pdf"
+    ]
+  },
+  "risk_scoring": {
+    "final_risk_score": 32.0,
+    "risk_level": "Medium",
+    "decision": "MANUAL_REVIEW",
+    "reasons": [
+      "Identity risk=0.00 (from confidence 100.00).",
+      "News risk=80.00 (from adverse media screening).",
+      "Hit: Compliance Watchlist (high) - Associated with sanctions-screening false declaration case.",
+      "SingPost AR 2022_23.pdf: fine x48, fraud x21, corruption x16, breach x14",
+      "SingPost AR 2023_24.pdf: fine x47, fraud x24, breach x20, corruption x15",
+      "SingPost AR 2024_25.pdf: fine x47, whistleblowing x26, fraud x23, corruption x16"
+    ]
+  }
+}

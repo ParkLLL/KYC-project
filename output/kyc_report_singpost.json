@@ -1,59 +1,10 @@
 {
-  "customer_id": "C001",
-  "identity_check": {
-    "confidence_score": 100.0,
-    "name_match": true,
-    "id_match": true,
-    "dob_match": true,
-    "ocr_fields": {
-      "name": "ALICE TAN",
-      "id_number": "S1234567A",
-      "dob": "1992-04-12"
-    },
-    "reasons": []
+  "customer_id": "C003",
+  "agent_decision": "The customer's identity was verified with a confidence score of 100, indicating a strong match with the provided documentation. However, the news check revealed significant adverse media, including a high-severity alert from a Compliance Bulletin related to a sanctions investigation and multiple risk signals from annual reports. These factors, despite a clean identity check, contribute to a medium risk level. Therefore, the customer requires manual review to further assess the identified risks.\n\nMANUAL_REVIEW\n32\nThe customer's identity was successfully verified with a confidence score of 100. However, the adverse media screening returned a high-severity alert related to a sanctions investigation and several risk signals from annual reports. These findings contribute to a medium risk level, necessitating a manual review to thoroughly investigate the identified concerns before a final decision can be made.",
+  "tool_outputs": {
+    "identity_check_tool": "{\n  \"customer_id\": \"C003\",\n  \"confidence_score\": 100.0,\n  \"name_match\": true,\n  \"id_match\": true,\n  \"dob_match\": true,\n  \"ocr_fields\": {\n    \"name\": \"CHARLIE ONG\",\n    \"id_number\": \"G1122334C\",\n    \"dob\": \"1979-01-25\"\n  },\n  \"reasons\": []\n}",
+    "news_check_tool": "{\n  \"customer_id\": \"C003\",\n  \"customer_name\": \"CHARLIE ONG\",\n  \"news_risk_score\": 80.0,\n  \"matched_alerts\": [\n    {\n      \"customer_id\": \"C003\",\n      \"name\": \"CHARLIE ONG\",\n      \"severity\": \"high\",\n      \"source\": \"Compliance Bulletin\",\n      \"summary\": \"Flagged in sanctions-adjacent investigation.\"\n    },\n    {\n      \"source\": \"RAG(SingPost AR 2022_23.pdf, SingPost AR 2023_24.pdf, SingPost AR 2024_25.pdf)\",\n      \"severity\": \"high\",\n      \"summary\": \"Semantic retrieval found risk signals for entity 'SingPost' in annual reports.\"\n    }\n  ],\n  \"reasons\": [\n    \"Hit: Compliance Bulletin (high) - Flagged in sanctions-adjacent investigation.\",\n    \"RAG (SingPost AR 2022_23.pdf, SingPost AR 2023_24.pdf, SingPost AR 2024_25.pdf): corruption x16, bribery x11, fraud x8, non-compliance x4, sanction x3\"\n  ]\n}",
+    "risk_scoring_tool": "{\n  \"final_risk_score\": 32.0,\n  \"risk_level\": \"Medium\",\n  \"decision\": \"MANUAL_REVIEW\",\n  \"reasons\": [\n    \"Identity risk=0.00 (from confidence 100.00).\",\n    \"News risk=80.00 (from adverse media screening).\",\n    \"Hit: Compliance Bulletin (high) - Flagged in sanctions-adjacent investigation.\",\n    \"RAG (SingPost AR 2022_23.pdf, SingPost AR 2023_24.pdf, SingPost AR 2024_25.pdf): corruption x16, bribery x11, fraud x8, non-compliance x4, sanction x3\"\n  ]\n}"
   },
-  "news_check": {
-    "news_risk_score": 70.0,
-    "matched_alerts": [
-      {
-        "source": "SingPost AR 2022_23.pdf",
-        "severity": "high",
-        "summary": "Keyword risk signals found for entity 'SingPost'."
-      },
-      {
-        "source": "SingPost AR 2023_24.pdf",
-        "severity": "high",
-        "summary": "Keyword risk signals found for entity 'SingPost'."
-      },
-      {
-        "source": "SingPost AR 2024_25.pdf",
-        "severity": "high",
-        "summary": "Keyword risk signals found for entity 'SingPost'."
-      }
-    ],
-    "reasons": [
-      "No adverse media hit found.",
-      "SingPost AR 2022_23.pdf: fine x48, fraud x21, corruption x16, breach x14",
-      "SingPost AR 2023_24.pdf: fine x47, fraud x24, breach x20, corruption x15",
-      "SingPost AR 2024_25.pdf: fine x47, whistleblowing x26, fraud x23, corruption x16"
-    ],
-    "reports_scanned": [
-      "data/raw/SingPost AR 2022_23.pdf",
-      "data/raw/SingPost AR 2023_24.pdf",
-      "data/raw/SingPost AR 2024_25.pdf"
-    ]
-  },
-  "risk_scoring": {
-    "final_risk_score": 28.0,
-    "risk_level": "Low",
-    "decision": "APPROVE",
-    "reasons": [
-      "Identity risk=0.00 (from confidence 100.00).",
-      "News risk=70.00 (from adverse media screening).",
-      "No adverse media hit found.",
-      "SingPost AR 2022_23.pdf: fine x48, fraud x21, corruption x16, breach x14",
-      "SingPost AR 2023_24.pdf: fine x47, fraud x24, breach x20, corruption x15",
-      "SingPost AR 2024_25.pdf: fine x47, whistleblowing x26, fraud x23, corruption x16"
-    ]
-  }
+  "reasoning_steps": 3
 }
